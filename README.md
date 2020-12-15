@@ -85,6 +85,14 @@ StringBuffer：可变类，线程安全 支持并发操作 但是代价会更高
 StringBuilder：可变类 线程不安全 不支持并发
 ***
 
+### Java的反射
+反射是通过运行时的二进制字节码来修改类的属性或执行方法。<br>
+反射的性能开销：平时我们会调用 Class.forName、Class.getMethod、以及 Method.invoke 这三个操作。其中，Class.forName 会调用本地方法，Class.getMethod 则会遍历该类的公有方法，如果没有匹配到，它还将遍历父类的公有方法，可想而知，这两个操作都非常耗时。下面就是 Method.invoke 调用本身的开销了，首先是 invoke 方法的参数是一个可变长参数，也就是构建一个 Object 数组存参数，这也同时带来了基本数据类型的装箱操作，在 invoke 内部会进行运行时权限检查，这也是一个损耗点。普通方法调用可能有一系列优化手段，比如方法内联、逃逸分析，而这又是反射调用所不能做的，性能差距再一次被放大。
+
+### Java注解
+存放在Java字节码中的一个Annotations 数组，类方法属性都可以加上注解，再通过反射来拿到这些信息。
+
+
 ### 类加载过程
 
 1、从javac文件生成到二进制字节码文件.class 再将.class文件提交到JVM中执行。<br>
@@ -135,10 +143,115 @@ GCroot的对象包括的虚拟机栈和本地方法栈中引用的对象、方�
 对于Java来说，中间存在4中引用类型。强引用，软引用，弱引用，虚引用。当一个对象具有强引用，那么垃圾回收器不会回收他，即使会抛出oom错误。 软引用：当空间充足的时候不会垃圾回收，一旦进入到内存不足时，进行垃圾回收。 弱引用：有更短暂的生命周期，当垃圾回收时，不论出现什么情况都会回收他。不过垃圾回收器的线程优先级并不高，可能并不会发现他。 虚引用：并不决定对象的生命周期，在任何时候都可以被垃圾回收器回收。
 
 #### 垃圾回收器
-serial和parnew： 最简单的垃圾回收器。<br>
-CMS：1、初始标记，仅仅关联与GCRoot有关的对象，需要Stop the World，这一步速度快 2、并发标记，边标记边运行，把与第一步标记有关的对象进行标记出来。3、重新标记，这一步需要stw，修正在并发标记过程之中，新创建的gc对象。4、并发清除，这一步由于使用的是标记清除法，所以不需要stw，但是标记清除法会产生内存碎片。<br>
-G1:分为四类region，eden、survivor、old、humongous。h为大文件区。每个region存有rset和cset，rset存放引用对象，cset存放需要清理的对象。过程分为1、初始标记 2、并发标记 一边标记一边运行 3、最终标记 stw 4、并发清除 需要stw，复制算法，按照cset的优先级进行排序，每一次选择优先级更高的进行回收。<br>
+serial和parnew： 最简单的垃圾回收器。
+***
+CMS：1、初始标记，仅仅关联与GCRoot有关的对象，需要Stop the World，这一步速度快 2、并发标记，边标记边运行，把与第一步标记有关的对象进行标记出来。3、重新标记，这一步需要stw，修正在并发标记过程之中，新创建的gc对象。4、并发清除，这一步由于使用的是标记清除法，所以不需要stw，但是标记清除法会产生内存碎片。
+***
+G1:分为四类region，eden、survivor、old、humongous。h为大文件区。每个region存有rset和cset，rset存放引用对象，cset存放需要清理的对象。过程分为1、初始标记 2、并发标记 一边标记一边运行 3、最终标记 stw 4、并发清除 需要stw，复制算法，按照cset的优先级进行排序，每一次选择优先级更高的进行回收。
+***
 最近貌似出了个zgc jdk11（还没看） TODO
+
+## Java容器
+
+### map
+
+#### hashmap、concurenthashmap、linkedhashmap、treemap、hashtable
+
+hashmap本质是一个数组+链表+红黑树的结构。 数组中存放key值，链表中存有value。 每一个存储节点是一个Entry。
+```
+public class HashMap<K,V> extends AbstractMap<K,V> implements Map<K,V>, Cloneable, Serializable {
+    // 数组
+    transient Node<K,V>[] table;    
+	static class Node<K,V> implements Map.Entry<K,V> {
+        final int hash;
+        final K key;
+        V value;
+        // 链表
+        Node<K,V> next;
+```
+
+```
+ //默认hash桶初始长度16
+  static final int DEFAULT_INITIAL_CAPACITY = 1 << 4; 
+
+  //hash表最大容量2的30次幂
+  static final int MAXIMUM_CAPACITY = 1 << 30;
+
+  //默认负载因子 0.75
+  static final float DEFAULT_LOAD_FACTOR = 0.75f;
+
+  //链表的数量大于等于8个并且桶的数量大于等于64时链表树化 
+  static final int TREEIFY_THRESHOLD = 8;
+
+  //hash表某个节点链表的数量小于等于6时树拆分
+  static final int UNTREEIFY_THRESHOLD = 6;
+
+  //树化时最小桶的数量
+  static final int MIN_TREEIFY_CAPACITY = 64;
+```
+负载因子：0.75 当hashmap之中的元素个数大于capacity*loadfactor且新加入的元素的位置不为空，扩容成原来的两倍。<br>
+查找时使用（n - 1）& hash 来进行查找而不是遍历。<br>
+允许null键，有专门的函数进行null的逻辑处理。<br>
+线程不安全。<br>
+***
+hashtable: 相比于hashmap并不来自同一个collection，线程安全，实现办法是通过synchronize，每次在put的过程之中，在方法之上打上synchronize。<br>
+concurrenthashmap：在put方法之中打上CAS，get不处理实现线程安全。每一步CAS时，使用volatile关键字，保证不会读到脏数据却直接写入内存<br>
+LinkedHashmap:保证有序，内部会构建一个双向链表，每一次插入的时候都会在每个node之上前后穿起来，get会进入到双向链表表的最后一位。
+***
+Arraylist：
+扩容大小：原大小*1.5+1，初始大小10. 连续空间数组，扩容的时候是开辟一段新的空间，把原有的数据复制到新的数组之中。<br>
+Arraylist删除元素可能会出现问题，最好使用iterator来进行删除或者从尾开始遍历。
+```
+Iterator<Integer> it=arr.iterator();
+while(it.hasNext()){
+  Integer i=it.next();
+  if(i.equals(target)){
+    it.remove();
+  }
+}
+```
+为了保证线程安全，使用copyonwriteArraylist，插入时加锁，读不加
+***
+hashset：与map类似，只是没有链表板块。 再插入之中同样是需要进行一个判断，如果相同的hashcode存在则不再插入，不存在则插入数组
+***
+Linkedlist：双向链表，无扩容机制。
+
+## Java 多线程
+
+### 线程、进程、协程的关系和区别
+进程资源分配的独立单位，拥有独立的内存，CPU栈，独立的虚拟内存。cpu时间片。当发生切换时会保存cpu上下文（程序计数器、cpu寄存器），用户态资源。<br>
+线程最小的调度单位。共享虚拟内存，当线程切换时，不用保存虚拟内存。一个进程可以有n个线程<br>
+协程时最轻量级的，且只在用户态进行。没有独立的虚拟内存和CPU栈。一个线程可有多个协程<br>
+***
+用户态和内核态：用户态级别更低，切换只能使用系统调用、硬中断和异常。
+
+### Java创建线程的方式
+可以使用Thread，Runnable，Callable，和线程池的方式进行创建。Thread是通过new Thread来重写run方法，Runnable接口可以将线程和任务想分离。 Callable可以产生带返回值的线程（FutureTask）
+```
+Futuretask <Integer> task=new FutureTask<>(new Callable<Integer>){
+  public Integer run(){
+      log.debug("123");
+      return null;
+  }
+}
+
+Thread t=new Thread(task);
+t.start();
+Integer t=task.get();
+```
+### 线程的生命周期
+新建、就绪、阻塞、运行、死亡<br>
+引起阻塞：锁，sleep
+引起就绪：更高级的线程进入
+
+### Object和Thread的一些方法
+wait/notify/notifyAll: 
+Join：
+sleep：
+
+### Synchronize
+在JIT的逃逸分析之中，会把锁自动分成为四种
+
 
 
 
