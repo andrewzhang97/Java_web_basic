@@ -245,12 +245,12 @@ Integer t=task.get();
 引起就绪：更高级的线程进入
 
 ### Object和Thread的一些方法
-wait/notify/notifyAll: 
-Join：
-sleep：
+wait/notify/notifyAll: 他们都是object方法。wait 函数是当一个线程调用了共享变量的 wait 方法时，该调用线程就会被阻塞挂起，直到其他线程调用了该共享变量的 notify/notifyAll 方法唤醒。<br>
+Join：等待线程结束。如果在main线程之中，等到join之后，main才可以介入。
+sleep：不释放锁的对象，只释放cpu的使用权。
 
 ### Synchronize
-在JIT的逃逸分析之中，会把锁自动分成为四种
+在JIT的逃逸分析之中，会把锁自动分成为四种无锁、偏向锁、轻量级锁、重量级锁。<br>
 
 
 
