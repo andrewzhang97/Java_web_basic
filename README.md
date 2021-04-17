@@ -248,6 +248,7 @@ Integer t=task.get();
 wait/notify/notifyAll: 他们都是object方法。wait 函数是当一个线程调用了共享变量的 wait 方法时，该调用线程就会被阻塞挂起，直到其他线程调用了该共享变量的 notify/notifyAll 方法唤醒。<br>
 Join：等待线程结束。如果在main线程之中，等到join之后，main才可以介入。
 sleep：不释放锁的对象，只释放cpu的使用权。
+Object其他方法分为geClass（用于反射，final），hashcode（可重写，用于验证是否同一对象，对象相同hashcode相同），equals（与hashcode向相关，如果重写了equals方法，通常有必要重写hashCode方法），clone（创建并返回当前对象的一份拷贝，浅拷贝（拷贝对象），如需深拷贝（拷贝属性，new一个）重写该方法。）
 
 ### Synchronize
 在JIT的逃逸分析之中，会把锁自动分成为四种无锁、偏向锁、轻量级锁、重量级锁。<br>
